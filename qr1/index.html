@@ -1,10 +1,105 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
 <title>2028 대입 설명회 자료</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="0; url=../busan-seolmyeonghoe.pdf">
-<script>location.replace("../busan-seolmyeonghoe.pdf");</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #52555c; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif; }
+  #bar {
+    position: sticky; top: 0; z-index: 10;
+    background: #2b2d33; color: #fff;
+    padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top, 0px));
+    font-size: 14px; display: flex; justify-content: space-between; align-items: center;
+  }
+  #bar a { color: #a9c2ff; text-decoration: none; font-size: 13px; }
+  #doc { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px; }
+  .page {
+    width: 100%; max-width: 980px; background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,.35); position: relative;
+  }
+  .page canvas { display: block; width: 100%; height: auto; }
+  .ph { display: flex; align-items: center; justify-content: center; color: #9aa; font-size: 13px; }
+  #msg { color: #eee; text-align: center; padding: 40px 16px; font-size: 14px; line-height: 1.6; }
+  #msg a { color: #a9c2ff; }
+</style>
 </head>
-<body style="font-family:sans-serif;text-align:center;padding:60px 20px;color:#333">
-<p>자료를 여는 중입니다…</p>
-<p><a href="../busan-seolmyeonghoe.pdf">열리지 않으면 여기를 눌러주세요</a></p>
-</body></html>
+<body>
+<div id="bar">
+  <span id="title">2028 대입 설명회 — 명작수학</span>
+  <a id="dl" href="../busan-seolmyeonghoe.pdf" target="_blank" rel="noopener">전체 PDF ↗</a>
+</div>
+<div id="doc"><div id="msg">자료를 불러오는 중입니다…</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function () {
+  var PDF_URL = "../busan-seolmyeonghoe.pdf";
+  var doc = document.getElementById("doc");
+  var msg = document.getElementById("msg");
+
+  if (!window.pdfjsLib) {
+    msg.innerHTML = '뷰어를 불러오지 못했습니다. <a href="' + PDF_URL + '">여기서 PDF 열기</a>';
+    return;
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  pdfjsLib.getDocument({ url: PDF_URL }).promise.then(function (pdf) {
+    msg.remove();
+    var pages = [];
+    var seq = Promise.resolve();
+    // 1) 각 페이지 자리(비율)만 먼저 잡기
+    for (var i = 1; i <= pdf.numPages; i++) {
+      (function (n) {
+        seq = seq.then(function () {
+          return pdf.getPage(n).then(function (page) {
+            var vp = page.getViewport({ scale: 1 });
+            var holder = document.createElement("div");
+            holder.className = "page";
+            holder.style.aspectRatio = vp.width + " / " + vp.height;
+            var ph = document.createElement("div");
+            ph.className = "ph";
+            ph.style.paddingBottom = (vp.height / vp.width * 100) + "%";
+            ph.textContent = n + " / " + pdf.numPages;
+            holder.appendChild(ph);
+            doc.appendChild(holder);
+            pages.push({ page: page, holder: holder, done: false });
+          });
+        });
+      })(i);
+    }
+    seq.then(function () {
+      // 2) 화면에 들어오는 페이지만 렌더
+      var io = new IntersectionObserver(function (ents) {
+        ents.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          var rec = pages[Array.prototype.indexOf.call(doc.children, e.target)];
+          if (!rec || rec.done) return;
+          rec.done = true;
+          io.unobserve(e.target);
+          var w = e.target.clientWidth || 980;
+          var base = rec.page.getViewport({ scale: 1 });
+          var scale = (w / base.width) * DPR;
+          var vp = rec.page.getViewport({ scale: scale });
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.ceil(vp.width);
+          canvas.height = Math.ceil(vp.height);
+          rec.page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
+            .then(function () { e.target.innerHTML = ""; e.target.appendChild(canvas); });
+        });
+      }, { rootMargin: "800px 0px" });
+      pages.forEach(function (r) { io.observe(r.holder); });
+    });
+  }).catch(function () {
+    msg.innerHTML = '자료를 여는 중 문제가 발생했습니다. <a href="' + PDF_URL + '">여기서 PDF 열기</a>';
+  });
+})();
+</script>
+</body>
+</html>
